@@ -38,7 +38,7 @@
                             adding the project build directory -->
                         <classpath />
                         <argument>-Xmx2048m</argument>
-                        <argument>com.bennight.Test</argument>
+                        <argument>com.bennight.bench.intersection.app</argument>
                     </arguments>
                 </configuration>
             </plugin>
