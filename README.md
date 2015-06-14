@@ -68,7 +68,7 @@ So we can definitely see that #vertices in the query geometry has a definite upw
 
 One thing to note, on the ordering of the series, is that the randomly generated geometry sets are different for each collection.  Based on the ordering not following number of vertices it stands to reason that something else is impacting this here.  My working assumption is that the actual distribution of geometries is the causative factor here - probably in some cases geometries can be excluded based on envelope comparisons.   A better modification ot this test would be to generate one set of geometries, and increase the vertex count by densifying the geometry.  
 
-## Intersecting with prepared regular geometries
+## Intersecting with prepared geometries
 
 Here we see the results of the same type of test, this time with a prepared query geometry.
 
