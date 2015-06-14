@@ -1,16 +1,20 @@
 package com.bennight.bench.intersection;
 
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.Polygon;
+import com.google.common.base.Preconditions;
+import com.vividsolutions.jts.densify.Densifier;
+import com.vividsolutions.jts.geom.*;
 import com.vividsolutions.jts.geom.prep.PreparedGeometryFactory;
 import com.vividsolutions.jts.geom.prep.PreparedPolygon;
+import com.vividsolutions.jts.linearref.LengthIndexedLine;
+import org.apache.commons.lang3.text.WordUtils;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.*;
 
 /**
@@ -24,9 +28,9 @@ public class app {
 
     public static void main(String[] args) throws IOException {
 
-        Map<Integer, DescriptiveStatistics> timeToPrepare = new HashMap<>();
-        Map<Integer, Map<Integer, DescriptiveStatistics>> intersects = new HashMap<>();
-        Map<Integer, Map<Integer, DescriptiveStatistics>> preparedIntersects = new HashMap<>();
+        SortedMap<Integer, DescriptiveStatistics> timeToPrepare = new TreeMap<>();
+        SortedMap<Integer, SortedMap<Integer, DescriptiveStatistics>> intersects = new TreeMap<>();
+        SortedMap<Integer, SortedMap<Integer, DescriptiveStatistics>> preparedIntersects = new TreeMap<>();
 
 
         //Test the time it takes to prepare geometries as a function of number of points in the geometry
@@ -37,6 +41,10 @@ public class app {
         long init = 0;
         long fin = 0;
         int hash = -1;
+
+
+
+
         for (int i = 10; i <= 10000000; i *= 10){
             //System.out.println(i);
             queryGeom = createPolygon(i, 0, 0, 60);
@@ -63,95 +71,110 @@ public class app {
         System.out.println("-----------------------------------------------");
 
 
-        //Test to find the time to perform and intersection on non prepared geometries, as a function of # vetices
+
 
         File preparedIntersectsFile = new File("preparedIntersects.csv");
         BufferedWriter preparedIntersectsBW = new BufferedWriter(new FileWriter(preparedIntersectsFile));
         preparedIntersectsBW.write("#Target Vertices,#Query Vertices,MSEC,STDEV\r\n");
 
-        for (int i = 0; i <= 100000; i += 1000) {
-            if (i < 4) continue;
-            List<Polygon> polygons = generatePolyCollections(10, i);
-            preparedIntersects.put(i, new HashMap<Integer, DescriptiveStatistics>());
-            for (int j = 0; j <= 100000; j += 1000) {
-                if (j < 4) continue;
-                queryGeom = createPolygon(j, 0, 0, 60);
-                preparedQueryGeom = (PreparedPolygon) preparedGeometryFactory.create(queryGeom);
-                preparedIntersects.get(i).put(j, new DescriptiveStatistics());
-                for (Polygon p : polygons){
-                    init = System.nanoTime();
-                    preparedQueryGeom.intersects(p);
-                    fin = System.nanoTime() - init;
-                    preparedIntersects.get(i).get(j).addValue(fin);
-                }
-                preparedIntersectsBW.write(i + "," + j +  "," + preparedIntersects.get(i).get(j).getMean() / 1000000d + "," + preparedIntersects.get(i).get(j).getStandardDeviation() / 1000000d + "\r\n");
-            }
-        }
-
-        preparedIntersectsBW.close();
-
-
-
-        System.out.println("-----------------------------------------------");
-        System.out.println("Sampled time to intersect with prepared geometry");
-        System.out.println("Values grouped by # vertices for query and target");
-        System.out.println("[TARGET][QUERY]    : [MSEC]  \u00B1 [RSD]");
-        System.out.println("-----------------------------------------------");
-        System.out.println(String.format("[1,000][1,000]     : %.5f \u00B1 %.2f%%", preparedIntersects.get(1000).get(1000).getMean() / 1000000d, preparedIntersects.get(1000).get(1000).getStandardDeviation() /  preparedIntersects.get(1000).get(1000).getMean() * 100 ));
-        System.out.println(String.format("[10,000][1,000]    : %.5f \u00B1 %.2f%%", preparedIntersects.get(10000).get(1000).getMean() / 1000000d, preparedIntersects.get(10000).get(1000).getStandardDeviation() /  preparedIntersects.get(10000).get(1000).getMean() * 100 ));
-        System.out.println(String.format("[100,000][1,000]   : %.5f \u00B1 %.2f%%", preparedIntersects.get(100000).get(1000).getMean() / 1000000d, preparedIntersects.get(100000).get(1000).getStandardDeviation() /  preparedIntersects.get(100000).get(1000).getMean() * 100 ));
-        System.out.println(String.format("[1,000][10,000]    : %.5f \u00B1 %.2f%%", preparedIntersects.get(1000).get(10000).getMean() / 1000000d, preparedIntersects.get(1000).get(10000).getStandardDeviation() /  preparedIntersects.get(1000).get(10000).getMean() * 100 ));
-        System.out.println(String.format("[10,000][10,000]   : %.5f \u00B1 %.2f%%", preparedIntersects.get(10000).get(10000).getMean() / 1000000d, preparedIntersects.get(10000).get(10000).getStandardDeviation() /  preparedIntersects.get(10000).get(10000).getMean() * 100 ));
-        System.out.println(String.format("[100,000][10,000]  : %.5f \u00B1 %.2f%%", preparedIntersects.get(100000).get(10000).getMean() / 1000000d, preparedIntersects.get(100000).get(10000).getStandardDeviation() /  preparedIntersects.get(100000).get(10000).getMean() * 100 ));
-        System.out.println(String.format("[1,000][100,000]   : %.5f \u00B1 %.2f%%", preparedIntersects.get(1000).get(100000).getMean() / 1000000d, preparedIntersects.get(1000).get(100000).getStandardDeviation() /  preparedIntersects.get(1000).get(100000).getMean() * 100 ));
-        System.out.println(String.format("[10,000][100,000]  : %.5f \u00B1 %.2f%%", preparedIntersects.get(10000).get(100000).getMean() / 1000000d, preparedIntersects.get(10000).get(100000).getStandardDeviation() /  preparedIntersects.get(10000).get(100000).getMean() * 100 ));
-        System.out.println(String.format("[100,000][100,000] : %.5f \u00B1 %.2f%%", preparedIntersects.get(100000).get(100000).getMean() / 1000000d, preparedIntersects.get(100000).get(100000).getStandardDeviation() /  preparedIntersects.get(100000).get(100000).getMean() * 100 ));
-        System.out.println("-----------------------------------------------");
-
-
-
-
-        //Test to find the time to perform and intersection on non prepared geometries, as a function of # vetices
 
         File intersectsFile = new File("intersects.csv");
         BufferedWriter intersectsBW = new BufferedWriter(new FileWriter(intersectsFile));
         intersectsBW.write("#Target Vertices,#Query Vertices,MSEC,STDEV\r\n");
 
-        for (int i = 0; i <= 10000; i += 500) {
-            if (i < 4) continue;
-            List<Polygon> polygons = generatePolyCollections(10, i);
-            intersects.put(i, new HashMap<Integer, DescriptiveStatistics>());
-            for (int j = 0; j <= 10000; j += 500) {
-                if (j < 4) continue;
-                queryGeom = createPolygon(j, 0, 0, 60);
-                intersects.get(i).put(j, new DescriptiveStatistics());
-                for (Polygon p : polygons){
+
+
+        int origNumTargetPoints = 10;
+        int origNumQueryPoints = 10;
+
+        int numTargetPoints = origNumTargetPoints;
+        int numQueryPoints = origNumQueryPoints;
+        int factor = 2;
+        int maxPoints = 1310720;
+
+        List<Polygon> polys = generatePolyCollections(1000, numTargetPoints);
+
+        Polygon originalQueryGeom = createPolygon(numQueryPoints, 0, 0, 70);
+
+
+        //start out at a low point count, and densify the points (interpolate) by the factor each time - for both the query and the target geometry
+        while (numTargetPoints <= maxPoints) {
+            numQueryPoints = origNumQueryPoints;
+
+            preparedIntersects.put(numTargetPoints, new TreeMap<Integer, DescriptiveStatistics>());
+            intersects.put(numTargetPoints, new TreeMap<Integer, DescriptiveStatistics>());
+
+            queryGeom = geometryFactory.createPolygon(originalQueryGeom.getCoordinates());
+
+            while (numQueryPoints <= maxPoints) {
+                preparedQueryGeom = (PreparedPolygon) preparedGeometryFactory.create(geometryFactory.createPolygon(queryGeom.getCoordinates()));
+
+                preparedIntersects.get(numTargetPoints).put(numQueryPoints, new DescriptiveStatistics());
+                intersects.get(numTargetPoints).put(numQueryPoints, new DescriptiveStatistics());
+
+                for (Polygon p : polys){
                     init = System.nanoTime();
-                    queryGeom.intersects(p);
+                    preparedQueryGeom.intersects(p);
                     fin = System.nanoTime() - init;
-                    intersects.get(i).get(j).addValue(fin);
+                    preparedIntersects.get(numTargetPoints).get(numQueryPoints).addValue(fin);
+
+                    init = System.nanoTime();
+                    queryGeom.intersection(p);
+                    fin = System.nanoTime() - init;
+                    intersects.get(numTargetPoints).get(numQueryPoints).addValue(fin);
                 }
-                intersectsBW.write(i + "," + j + ","  + intersects.get(i).get(j).getMean() / 1000000d + "," + intersects.get(i).get(j).getStandardDeviation() / 1000000d + "\r\n");
+
+                System.out.println("-------------------------------------------------------------------------------");
+                System.out.println("Prepared: " + numTargetPoints + ":" + numQueryPoints + " = " + preparedIntersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d);
+                System.out.println("Regular:  " + numTargetPoints + ":" + numQueryPoints + " = " + intersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d);
+                System.out.println("-------------------------------------------------------------------------------");
+
+                preparedIntersectsBW.write(numTargetPoints + "," + numQueryPoints +  "," + preparedIntersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d + "," + preparedIntersects.get(numTargetPoints).get(numQueryPoints).getStandardDeviation() / 1000000d + "\r\n");
+                intersectsBW.write(numTargetPoints + "," + numQueryPoints +  "," + intersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d + "," + intersects.get(numTargetPoints).get(numQueryPoints).getStandardDeviation() / 1000000d + "\r\n");
+
+                queryGeom = densifyPolygon(factor, queryGeom);
+                numQueryPoints *= factor;
+            }
+            numTargetPoints *=  factor;
+            if (numTargetPoints <= maxPoints) {
+                polys = densifyPolyCollection(polys, factor);
+            }
+
+        }
+
+        preparedIntersectsBW.close();
+        intersectsBW.close();
+
+        NumberFormat nf = NumberFormat.getNumberInstance(Locale.US);
+
+
+        System.out.println("-----------------------------------------------");
+        System.out.println("Sampled time to intersect ");
+        System.out.println("Values grouped by # vertices for query and target");
+        System.out.println("[TARGET][QUERY]        : [MSEC]  \u00B1 [RSD]");
+        System.out.println("-----------------------------------------------");
+        for (Map.Entry<Integer, SortedMap<Integer, DescriptiveStatistics>> kvpTarget : intersects.entrySet()){
+            for (Map.Entry<Integer, DescriptiveStatistics> kvpQuery : kvpTarget.getValue().entrySet()) {
+                System.out.println(String.format("%-23.23s", String.format("[%s][%s]", nf.format(kvpTarget.getKey()), nf.format(kvpQuery.getKey()))) + ": "
+                        + String.format("%07.5f \u00B1 %.2f%%", kvpQuery.getValue().getMean() / 1000000d,
+                        kvpQuery.getValue().getStandardDeviation() /  kvpQuery.getValue().getMean() * 100));
             }
         }
 
-        intersectsBW.close();
 
         System.out.println("-----------------------------------------------");
-        System.out.println("Sampled time to intersect");
+        System.out.println("Sampled time to intersect with prepared geometry");
         System.out.println("Values grouped by # vertices for query and target");
-        System.out.println("[TARGET][QUERY]  : [MSEC]  \u00B1 [RSD]");
+        System.out.println("[TARGET][QUERY]        : [MSEC]  \u00B1 [RSD]");
         System.out.println("-----------------------------------------------");
-        System.out.println(String.format("[500][500]       : %.5f \u00B1 %.2f%%", intersects.get(500).get(500).getMean() / 1000000d, intersects.get(500).get(500).getStandardDeviation() /  intersects.get(500).get(500).getMean() * 100 ));
-        System.out.println(String.format("[1,000][500]     : %.5f \u00B1 %.2f%%", intersects.get(1000).get(500).getMean() / 1000000d, intersects.get(1000).get(500).getStandardDeviation() /  intersects.get(1000).get(500).getMean() * 100 ));
-        System.out.println(String.format("[10,000][500]    : %.5f \u00B1 %.2f%%", intersects.get(10000).get(500).getMean() / 1000000d, intersects.get(10000).get(500).getStandardDeviation() /  intersects.get(10000).get(500).getMean() * 100 ));
-        System.out.println(String.format("[500][1000]      : %.5f \u00B1 %.2f%%", intersects.get(500).get(1000).getMean() / 1000000d, intersects.get(500).get(1000).getStandardDeviation() /  intersects.get(500).get(1000).getMean() * 100 ));
-        System.out.println(String.format("[1,000][1000]    : %.5f \u00B1 %.2f%%", intersects.get(1000).get(1000).getMean() / 1000000d, intersects.get(1000).get(1000).getStandardDeviation() /  intersects.get(1000).get(1000).getMean() * 100 ));
-        System.out.println(String.format("[10,000][1000]   : %.5f \u00B1 %.2f%%", intersects.get(10000).get(1000).getMean() / 1000000d, intersects.get(10000).get(1000).getStandardDeviation() /  intersects.get(10000).get(1000).getMean() * 100 ));
-        System.out.println(String.format("[500][10,000]    : %.5f \u00B1 %.2f%%", intersects.get(500).get(10000).getMean() / 1000000d, intersects.get(500).get(10000).getStandardDeviation() /  intersects.get(500).get(10000).getMean() * 100 ));
-        System.out.println(String.format("[1,000][10,000]  : %.5f \u00B1 %.2f%%", intersects.get(1000).get(10000).getMean() / 1000000d, intersects.get(1000).get(10000).getStandardDeviation() /  intersects.get(1000).get(10000).getMean() * 100 ));
-        System.out.println(String.format("[10,000][10,000] : %.5f \u00B1 %.2f%%", intersects.get(10000).get(10000).getMean() / 1000000d, intersects.get(10000).get(10000).getStandardDeviation() /  intersects.get(10000).get(10000).getMean() * 100 ));
-        System.out.println("-----------------------------------------------");
+        for (Map.Entry<Integer, SortedMap<Integer, DescriptiveStatistics>> kvpTarget : preparedIntersects.entrySet()){
+            for (Map.Entry<Integer, DescriptiveStatistics> kvpQuery : kvpTarget.getValue().entrySet()) {
+                System.out.println(String.format("%-23.23s", String.format("[%s][%s]", nf.format(kvpTarget.getKey()), nf.format(kvpQuery.getKey()))) + ": "
+                        + String.format("%07.5f \u00B1 %.2f%%", kvpQuery.getValue().getMean() / 1000000d,
+                        kvpQuery.getValue().getStandardDeviation() /  kvpQuery.getValue().getMean() * 100));
+            }
+        }
+
     }
 
 
@@ -166,6 +189,19 @@ public class app {
 
         return polys;
 
+    }
+
+    private static List<Polygon> densifyPolyCollection(List<Polygon> polygons, int factor){
+        Preconditions.checkArgument(factor >= 1);
+        if (factor == 1) {
+            return polygons;
+        }
+
+        List<Polygon> densifiedPolys = new ArrayList<>(polygons.size());
+        for (Polygon p : polygons){
+            densifiedPolys.add(densifyPolygon(factor, p));
+        }
+        return densifiedPolys;
     }
 
     private static Polygon createPolygon(
@@ -189,5 +225,30 @@ public class app {
         }
         coords.add(coords.get(0));
         return geometryFactory.createPolygon(coords.toArray(new Coordinate[coords.size()]));
+    }
+
+    private static Polygon densifyPolygon(final int factor, final Polygon polygon){
+        Preconditions.checkArgument(factor >= 1);
+        if (factor == 1) {
+            return polygon;
+        }
+
+        Coordinate[] polyCords = polygon.getCoordinates();
+        List<Coordinate> densifiedCoords = new ArrayList<Coordinate>(polyCords.length * factor);
+
+
+        densifiedCoords.add(polyCords[0]);
+
+        for (int i = 0; i < polyCords.length - 1; i++){
+            LineString ls = geometryFactory.createLineString(new Coordinate[]{polyCords[i], polyCords[i + 1]});
+            LengthIndexedLine indexedls = new LengthIndexedLine(ls);
+            double lengthIncrement = ls.getLength() / (factor);
+            for (int j = 1; j < factor; j++){
+                densifiedCoords.add(indexedls.extractPoint(lengthIncrement * factor));
+            }
+            densifiedCoords.add(polyCords[i+1]);
+        }
+
+        return geometryFactory.createPolygon(densifiedCoords.toArray(new Coordinate[densifiedCoords.size()]));
     }
 }
