@@ -30,7 +30,7 @@ Values are averaged for 100 repetitions
 From this we can see that the time it takes to prepare a geometry (either with the PreparedGeometryFactory.create() method, or by the new method for PreparedGeometry) is pretty invariant with respect to number of vertices, at least up to 10,000,000 - and it's fast in an absolute sense as well. (units are in milliseconds).
 
 
-## You are doing it wrong
+## Doing it wrong
 
 My first stab at this involved generating random polygons for the test - which was fine in and of itself.  Unfortunately I generated a *new* collection of random polygons every time I needed to increase the number of points.  This resulted in some other factors influencing the results - specifically intersections with more points could actually run faster if the envelopes of the two geometries were disjoint.  
 
