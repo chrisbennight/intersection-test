@@ -42,7 +42,7 @@ it doesn't make sense that a geometry with 80k vertices should take longer than 
 
 ## Doing it right(er)
 
-In order to correct this I generated a random colleciton of polygons (1000) once per run, and then in order to add more vertices I densified each polygon by a factor of 2 for each successive run.   Basically a point that looked like:
+In order to correct this I generated a random colleciton of polygons (1000) once per run, and then in order to add more vertices I densified each polygon by a factor of 2 for each successive run.   Basically a segment that looked like:
 
 ```
 *-----------------------------*
