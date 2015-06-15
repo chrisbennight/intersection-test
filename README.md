@@ -98,11 +98,14 @@ So there's obviously more to the story...
 
 ## Comparison: Intersection time
 
-If we generate another data set that shows the difference (in msec) of regular vs prepared intersects time that might tell us a bit more.  Here positive values (colored green) show places where the prepared geometry is faster.  Negative values show areas where the regular geometry is faster:
+If we generate another data set that shows the difference (in msec) of regular vs prepared intersects time that might tell us a bit more.  Here positive values (colored green) show places where the prepared geometry is faster.  Negative values (colored red) show areas where the regular geometry is faster:
 
 ![plot3](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/difference%20-%20prepared%20vs%20non%20prepared%20-%20chart.png)
 
 The cells with the dark border show the rough inflection point (actually first negative value) - cells to the right of these represent configurations where the regular geometry is faster;  cells to the left show configurations where the prepared geometry is faster.
+
+Here's a 3d view
+![plot3.5](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/speed-difference-3d.png)
 
 Here are some additional connected scatter plots that show the same data graphically
 
