@@ -98,7 +98,7 @@ So there's obviously more to the story...
 
 ## Comparison: Intersection time
 
-If we generate another data set that shows the difference (in msec) of regular vs prepared intersects time that might tell us a bit more.  Here positive values (colored green) show places where the prepared geometry is faster.  Negative values (colored red) show areas where the regular geometry is faster:
+If we generate another data set that shows the difference (in msec) of regular vs prepared intersects time that might tell us a bit more.  Here positive values (colored green) show places where the prepared geometry is faster.  Negative values (colored red) show areas where the regular geometry is faster.  Values are in msec.
 
 ![plot3](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/difference%20-%20prepared%20vs%20non%20prepared%20-%20chart.png)
 
