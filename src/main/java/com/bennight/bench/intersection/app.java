@@ -1,19 +1,25 @@
 package com.bennight.bench.intersection;
 
 import com.google.common.base.Preconditions;
-import com.vividsolutions.jts.densify.Densifier;
 import com.vividsolutions.jts.geom.*;
 import com.vividsolutions.jts.geom.prep.PreparedGeometryFactory;
 import com.vividsolutions.jts.geom.prep.PreparedPolygon;
 import com.vividsolutions.jts.linearref.LengthIndexedLine;
-import org.apache.commons.lang3.text.WordUtils;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.geotools.data.DataUtilities;
+import org.geotools.data.DefaultTransaction;
+import org.geotools.data.Transaction;
+import org.geotools.data.memory.MemoryFeatureCollection;
+import org.geotools.data.shapefile.ShapefileDataStore;
+import org.geotools.data.shapefile.ShapefileDataStoreFactory;
+import org.geotools.data.simple.SimpleFeatureSource;
+import org.geotools.data.simple.SimpleFeatureStore;
+import org.geotools.feature.*;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.opengis.feature.simple.SimpleFeatureType;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.text.DecimalFormat;
+import java.io.*;
 import java.text.NumberFormat;
 import java.util.*;
 
@@ -24,17 +30,19 @@ public class app {
 
     private static final Random RND = new Random(8675309);
     private static final GeometryFactory geometryFactory = new GeometryFactory();
-    private static PreparedGeometryFactory preparedGeometryFactory = new PreparedGeometryFactory();
+    private static final PreparedGeometryFactory preparedGeometryFactory = new PreparedGeometryFactory();
+    private static final boolean WRITE_SHAPEFILES = false; //note - with maxPoints at 327,680 turning this on will generate 10GB of output - adjust accordingly
 
-    public static void main(String[] args) throws IOException {
+
+
+    public static void main(String[] args) throws IOException, SchemaException {
 
         SortedMap<Integer, DescriptiveStatistics> timeToPrepare = new TreeMap<>();
         SortedMap<Integer, SortedMap<Integer, DescriptiveStatistics>> intersects = new TreeMap<>();
         SortedMap<Integer, SortedMap<Integer, DescriptiveStatistics>> preparedIntersects = new TreeMap<>();
 
+        final SimpleFeatureType POLY_TYPE = DataUtilities.createType("Poly", "the_geom:Polygon:srid=4326,name:String");
 
-        //Test the time it takes to prepare geometries as a function of number of points in the geometry
-        //Test values from 4 to 4000000
 
         Polygon queryGeom = null;
         PreparedPolygon preparedQueryGeom = null;
@@ -91,6 +99,7 @@ public class app {
         int numQueryPoints = origNumQueryPoints;
         int factor = 2;
         int maxPoints = 1310720;
+        //int maxPoints = 327680;
 
         List<Polygon> polys = generatePolyCollections(1000, numTargetPoints);
 
@@ -105,6 +114,8 @@ public class app {
             intersects.put(numTargetPoints, new TreeMap<Integer, DescriptiveStatistics>());
 
             queryGeom = geometryFactory.createPolygon(originalQueryGeom.getCoordinates());
+            boolean intersectsRegular = false;
+            boolean intersectsPrepared = true;
 
             while (numQueryPoints <= maxPoints) {
                 preparedQueryGeom = (PreparedPolygon) preparedGeometryFactory.create(geometryFactory.createPolygon(queryGeom.getCoordinates()));
@@ -112,29 +123,42 @@ public class app {
                 preparedIntersects.get(numTargetPoints).put(numQueryPoints, new DescriptiveStatistics());
                 intersects.get(numTargetPoints).put(numQueryPoints, new DescriptiveStatistics());
 
+
                 for (Polygon p : polys){
                     init = System.nanoTime();
-                    preparedQueryGeom.intersects(p);
+                    intersectsPrepared = preparedQueryGeom.intersects(p);
                     fin = System.nanoTime() - init;
                     preparedIntersects.get(numTargetPoints).get(numQueryPoints).addValue(fin);
 
                     init = System.nanoTime();
-                    queryGeom.intersection(p);
+                    intersectsRegular = queryGeom.intersects(p);
                     fin = System.nanoTime() - init;
                     intersects.get(numTargetPoints).get(numQueryPoints).addValue(fin);
+
+                    assert(intersectsPrepared == intersectsRegular);
                 }
 
+                if (WRITE_SHAPEFILES) {
+                    writePolygonToShapefile(queryGeom, POLY_TYPE, "query");
+                }
+
+                /*
                 System.out.println("-------------------------------------------------------------------------------");
                 System.out.println("Prepared: " + numTargetPoints + ":" + numQueryPoints + " = " + preparedIntersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d);
                 System.out.println("Regular:  " + numTargetPoints + ":" + numQueryPoints + " = " + intersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d);
                 System.out.println("-------------------------------------------------------------------------------");
-
+                */
                 preparedIntersectsBW.write(numTargetPoints + "," + numQueryPoints +  "," + preparedIntersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d + "," + preparedIntersects.get(numTargetPoints).get(numQueryPoints).getStandardDeviation() / 1000000d + "\r\n");
                 intersectsBW.write(numTargetPoints + "," + numQueryPoints +  "," + intersects.get(numTargetPoints).get(numQueryPoints).getMean() / 1000000d + "," + intersects.get(numTargetPoints).get(numQueryPoints).getStandardDeviation() / 1000000d + "\r\n");
 
                 queryGeom = densifyPolygon(factor, queryGeom);
                 numQueryPoints *= factor;
             }
+
+            if (WRITE_SHAPEFILES) {
+                writeCollectionToShapefile(polys, POLY_TYPE, "target");
+            }
+
             numTargetPoints *=  factor;
             if (numTargetPoints <= maxPoints) {
                 polys = densifyPolyCollection(polys, factor);
@@ -251,4 +275,68 @@ public class app {
 
         return geometryFactory.createPolygon(densifiedCoords.toArray(new Coordinate[densifiedCoords.size()]));
     }
+
+    private static void writePolygonToShapefile(Polygon p, SimpleFeatureType featureType, String prefix) throws IOException {
+        List<Polygon> polys = new ArrayList<>(1);
+        polys.add(p);
+        writeCollectionToShapefile(polys, featureType, prefix);
+    }
+
+
+    private static void writeCollectionToShapefile(List<Polygon> polys, SimpleFeatureType featureType, String prefix) throws IOException {
+        MemoryFeatureCollection collection = new MemoryFeatureCollection(featureType);
+        SimpleFeatureBuilder sfb = new SimpleFeatureBuilder(featureType);
+        String length = String.valueOf(polys.get(0).getCoordinates().length);
+        int i = 0;
+        for (Polygon p : polys) {
+            sfb.set("the_geom", p);
+            sfb.set("name", length);
+            collection.add(sfb.buildFeature(String.valueOf(i) + "_" + prefix + "_" + length));
+            i++;
+        }
+
+
+        File shapeDirectory = new File("src/main/resources/shapefiles/" + prefix + "_" + length);
+        shapeDirectory.mkdirs();
+        File shapefile = new File("src/main/resources/shapefiles/" + prefix + "_" + length + "/length.shp");
+        ShapefileDataStoreFactory shpDSF = new ShapefileDataStoreFactory();
+        Map<String, Serializable> params = new HashMap<>();
+        params.put("url", shapefile.toURI().toURL());
+        params.put("create spatial index", Boolean.TRUE);
+
+        ShapefileDataStore newDataStore = (ShapefileDataStore) shpDSF.createNewDataStore(params);
+        newDataStore.createSchema(featureType);
+
+        newDataStore.forceSchemaCRS(DefaultGeographicCRS.WGS84);
+
+        Transaction transaction = new DefaultTransaction("create");
+
+        String typeName = newDataStore.getTypeNames()[0];
+        SimpleFeatureSource featureSource = newDataStore.getFeatureSource(typeName);
+
+        if (featureSource instanceof SimpleFeatureStore) {
+            SimpleFeatureStore featureStore = (SimpleFeatureStore) featureSource;
+
+            featureStore.setTransaction(transaction);
+            try {
+                featureStore.addFeatures(collection);
+                transaction.commit();
+
+            } catch (Exception problem) {
+                problem.printStackTrace();
+                transaction.rollback();
+
+            } finally {
+                transaction.close();
+            }
+        } else {
+            System.out.println(typeName + " does not support read/write access");
+            System.exit(1);
+        }
+
+
+
+    }
+
+
 }
