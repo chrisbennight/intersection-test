@@ -40,6 +40,8 @@ public class app {
         SortedMap<Integer, DescriptiveStatistics> timeToPrepare = new TreeMap<>();
         SortedMap<Integer, SortedMap<Integer, DescriptiveStatistics>> intersects = new TreeMap<>();
         SortedMap<Integer, SortedMap<Integer, DescriptiveStatistics>> preparedIntersects = new TreeMap<>();
+        SortedMap<Integer, DescriptiveStatistics> pointTestRegular = new TreeMap<>();
+        SortedMap<Integer, DescriptiveStatistics> pointTestPrepared = new TreeMap<>();
 
         final SimpleFeatureType POLY_TYPE = DataUtilities.createType("Poly", "the_geom:Polygon:srid=4326,name:String");
 
@@ -48,7 +50,7 @@ public class app {
         PreparedPolygon preparedQueryGeom = null;
         long init = 0;
         long fin = 0;
-        int hash = -1;
+
 
 
 
@@ -79,6 +81,13 @@ public class app {
         System.out.println("-----------------------------------------------");
 
 
+        int maxPoints = 163840;
+
+        List<Point>  points = generatePointCollection(maxPoints);
+
+
+        maxPoints = 1310720;
+
 
 
         File preparedIntersectsFile = new File("preparedIntersects.csv");
@@ -91,6 +100,14 @@ public class app {
         intersectsBW.write("#Target Vertices,#Query Vertices,MSEC,STDEV\r\n");
 
 
+        File pointTestRegFile = new File("pointTestReg.csv");
+        BufferedWriter pointTestRegBW = new BufferedWriter(new FileWriter(pointTestRegFile));
+        pointTestRegBW.write("#Points, #Query Vertices,MSEC,STDEV\r\n");
+
+        File pointTestPrepFile = new File("pointTestPrep.csv");
+        BufferedWriter pointTestPrepBW = new BufferedWriter(new FileWriter(pointTestPrepFile));
+        pointTestPrepFile.write("#Points, #Query Vertices,MSEC,STDEV\r\n");
+
 
         int origNumTargetPoints = 10;
         int origNumQueryPoints = 10;
@@ -98,12 +115,14 @@ public class app {
         int numTargetPoints = origNumTargetPoints;
         int numQueryPoints = origNumQueryPoints;
         int factor = 2;
-        int maxPoints = 1310720;
+        //maxPoints = 1310720;
         //int maxPoints = 327680;
 
         List<Polygon> polys = generatePolyCollections(1000, numTargetPoints);
 
         Polygon originalQueryGeom = createPolygon(numQueryPoints, 0, 0, 70);
+
+        boolean firstrun = true;
 
 
         //start out at a low point count, and densify the points (interpolate) by the factor each time - for both the query and the target geometry
@@ -123,6 +142,35 @@ public class app {
                 preparedIntersects.get(numTargetPoints).put(numQueryPoints, new DescriptiveStatistics());
                 intersects.get(numTargetPoints).put(numQueryPoints, new DescriptiveStatistics());
 
+                if (firstrun){
+                    pointTestPrepared.put(numQueryPoints, new DescriptiveStatistics());
+                    pointTestRegular.put(numQueryPoints, new DescriptiveStatistics());
+
+                    //point in polygon test
+                    for (Point p : points) {
+
+                        init = System.nanoTime();
+                        intersectsPrepared = preparedQueryGeom.intersects(p);
+                        fin = System.nanoTime() - init;
+                        pointTestPrepared.get(numQueryPoints).addValue(fin);
+
+                        init = System.nanoTime();
+                        intersectsRegular = queryGeom.intersects(p);
+                        fin = System.nanoTime() - init;
+                        pointTestRegular.get(numQueryPoints).addValue(fin);
+
+                        assert(intersectsPrepared == intersectsRegular);
+                    }
+
+                    System.out.println("[" + queryGeom.getCoordinates().length + "]");
+                    System.out.println(String.format("Prep:  %.5f", pointTestPrepared.get(numQueryPoints).getMean() / 1000000d));
+                    System.out.println(String.format("Reg :  %.5f" , pointTestRegular.get(numQueryPoints).getMean() / 1000000d));
+                    System.out.println("");
+
+                    pointTestPrepBW.write(points.size() + "," + numQueryPoints + "," + pointTestPrepared.get(numQueryPoints).getMean() / 1000000d + "," + pointTestPrepared.get(numQueryPoints).getStandardDeviation() / 1000000d + "\r\n");
+                    pointTestRegBW.write(points.size() + "," + numQueryPoints +  "," + pointTestRegular.get(numQueryPoints).getMean() / 1000000d + "," + pointTestRegular.get(numQueryPoints).getStandardDeviation() / 1000000d + "\r\n");
+
+                }
 
                 for (Polygon p : polys){
                     init = System.nanoTime();
@@ -164,7 +212,15 @@ public class app {
                 polys = densifyPolyCollection(polys, factor);
             }
 
+            if (firstrun) {
+                firstrun = false;
+                pointTestRegBW.close();
+                pointTestPrepBW.close();
+            }
+
+
         }
+
 
         preparedIntersectsBW.close();
         intersectsBW.close();
@@ -201,7 +257,15 @@ public class app {
 
     }
 
+    private static List<Point> generatePointCollection(int numPoints){
+        List<Point> points = new ArrayList<>(numPoints);
+        Random random = new Random(8675309);
+        for (int i = 0; i < numPoints; i++){
+            points.add(geometryFactory.createPoint(new Coordinate(random.nextInt(360) - 180, random.nextInt(180) - 90)));
+        }
 
+        return points;
+    }
 
 
     private static List<Polygon>  generatePolyCollections(int numPolygons, int numPoints){
@@ -340,3 +404,4 @@ public class app {
 
 
 }
+
