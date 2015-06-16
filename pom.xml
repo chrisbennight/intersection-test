@@ -51,7 +51,7 @@
                         <!-- automatically creates the classpath using all project dependencies,also
                             adding the project build directory -->
                         <classpath />
-                        <argument>-Xmx2048m</argument>
+                        <argument>-Xmx16384m</argument>
                         <argument>com.bennight.bench.intersection.app</argument>
                     </arguments>
                 </configuration>

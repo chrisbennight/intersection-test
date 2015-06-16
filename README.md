@@ -1,4 +1,4 @@
-# intersection-test
+# intersects-test
 The intersects relation is at the core of many geospatial operations.  This project experiments with a few different permutations of JTS's prepared and regular geometry, with different geometry sizes for each.
 
 # to run
@@ -42,7 +42,7 @@ it doesn't make sense that a geometry with 80k vertices should take longer than 
 
 ## Doing it right(er)
 
-In order to correct this I generated a random colleciton of polygons (1000) once per run, and then in order to add more vertices I densified each polygon by a factor of 2 for each successive run.   Basically a point that looked like:
+In order to correct this I generated a random colleciton of polygons (1000) once per run, and then in order to add more vertices I densified each polygon by a factor of 2 for each successive run.   Basically a segment that looked like:
 
 ```
 *-----------------------------*
@@ -98,11 +98,14 @@ So there's obviously more to the story...
 
 ## Comparison: Intersection time
 
-If we generate another data set that shows the difference (in msec) of regular vs prepared intersects time that might tell us a bit more.  Here positive values (colored green) show places where the prepared geometry is faster.  Negative values show areas where the regular geometry is faster:
+If we generate another data set that shows the difference (in msec) of regular vs prepared intersects time that might tell us a bit more.  Here positive values (colored green) show places where the prepared geometry is faster.  Negative values (colored red) show areas where the regular geometry is faster.  Values are in msec.
 
 ![plot3](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/difference%20-%20prepared%20vs%20non%20prepared%20-%20chart.png)
 
 The cells with the dark border show the rough inflection point (actually first negative value) - cells to the right of these represent configurations where the regular geometry is faster;  cells to the left show configurations where the prepared geometry is faster.
+
+Here's a 3d view
+![plot3.5](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/speed-difference-3d.png)
 
 Here are some additional connected scatter plots that show the same data graphically
 
