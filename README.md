@@ -113,6 +113,30 @@ Here are some additional connected scatter plots that show the same data graphic
 
 ![plot5](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/time%20improvement%20vs%20query%20vertices.png)
 
+# Points
+
+Points in polygon tests are a much clearer case.  Here prepared geometries are always a net win
+
+
+Regular (min/max):
+
+Query Vertices |	Minutes for 1 mil geometries
+---------------|------
+10	            | 0.072951
+1310720	       | 28.31618
+
+Prepared (min/max):
+
+Query Vertices |	Minutes for 1 mil geometries
+---------------|------
+10	            | 0.00378
+1310720	       | 1.69770
+
+
+![pointtest](https://raw.githubusercontent.com/chrisbennight/intersection-test/master/src/main/resources/polyvspoint.png)
+
+
+
 # Data sets
 
 [Excel file used for analysis](https://github.com/chrisbennight/intersection-test/raw/master/src/main/resources/intersects-tests.xlsx)
